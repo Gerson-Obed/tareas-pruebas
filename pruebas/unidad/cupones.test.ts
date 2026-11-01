@@ -36,15 +36,42 @@ describe('validarCupon', () => {
   // la función. «rechaza un código con solo dos letras» sirve;
   // «prueba de validarCupon 3» no le sirve a nadie, ni a ti en tres semanas.
 
-  it.todo('rechaza un código con el formato equivocado');
+  it('rechaza un código con el formato equivocado', () => {
+    // Dos letras en vez de tres.
+    expect(validarCupon('US-2026', CATALOGO, AHORA)).toEqual({ ok: false, razon: 'formato' });
+    // Cinco dígitos en vez de cuatro.
+    expect(validarCupon('USP-20260', CATALOGO, AHORA)).toEqual({ ok: false, razon: 'formato' });
+    // Tres dígitos en vez de cuatro.
+    expect(validarCupon('USP-202', CATALOGO, AHORA)).toEqual({ ok: false, razon: 'formato' });
+  });
 
-  it.todo('rechaza un código que no está en el catálogo');
+  it('rechaza un código que no está en el catálogo', () => {
+    expect(validarCupon('ABC-1234', CATALOGO, AHORA)).toEqual({ ok: false, razon: 'inexistente' });
+  });
 
-  it.todo('rechaza un cupón vencido');
+  it('rechaza un cupón vencido', () => {
+    const catalogo = [guardado({ venceEn: d('2026-10-23') })];
+    expect(validarCupon('USP-2026', catalogo, AHORA)).toEqual({ ok: false, razon: 'vencido' });
+  });
 
-  it.todo('acepta el cupón el mismo día en que vence');
+  it('acepta el cupón el mismo día en que vence', () => {
+    const catalogo = [guardado({ venceEn: AHORA })];
+    expect(validarCupon('USP-2026', catalogo, AHORA)).toEqual({ ok: true, cupon: catalogo[0] });
+  });
 
-  it.todo('rechaza un cupón que ya llegó a su límite de usos');
+  it('rechaza un cupón que ya llegó a su límite de usos', () => {
+    const catalogo = [guardado({ limiteUsos: 2, usos: 2 })];
+    expect(validarCupon('USP-2026', catalogo, AHORA)).toEqual({ ok: false, razon: 'agotado' });
+  });
 
-  it.todo('acepta el código aunque venga en minúsculas o con espacios');
+  it('acepta el cupón cuando le queda exactamente un uso', () => {
+    const catalogo = [guardado({ limiteUsos: 2, usos: 1 })];
+    expect(validarCupon('USP-2026', catalogo, AHORA).ok).toBe(true);
+  });
+
+  it('acepta el código aunque venga en minúsculas o con espacios', () => {
+    expect(validarCupon('usp-2026', CATALOGO, AHORA)).toEqual({ ok: true, cupon: CATALOGO[0] });
+    expect(validarCupon('  USP-2026  ', CATALOGO, AHORA)).toEqual({ ok: true, cupon: CATALOGO[0] });
+    expect(validarCupon('  usp-2026\n', CATALOGO, AHORA)).toEqual({ ok: true, cupon: CATALOGO[0] });
+  });
 });

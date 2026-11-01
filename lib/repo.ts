@@ -24,6 +24,7 @@ export async function suscripcionesActivas(equipo: string): Promise<Suscripcion[
     SELECT id, equipo, plan, estado
       FROM suscripciones
      WHERE equipo = ${equipo}
+       AND estado = 'activa'
      ORDER BY id
   `;
   return filas;
@@ -37,16 +38,19 @@ export async function suscripcionesActivas(equipo: string): Promise<Suscripcion[
  * **ni aunque los 4 intentos lleguen en el mismo milisegundo**.
  */
 export async function canjearCupon(codigo: string, equipo: string): Promise<boolean> {
-  const filas = await sql<{ usos: number; limite_usos: number }[]>`
-    SELECT usos, limite_usos FROM cupones WHERE codigo = ${codigo}
-  `;
-  const cupon = filas[0];
-  if (!cupon) return false;
-  if (cupon.usos >= cupon.limite_usos) return false;
+  // Leer y escribir en un solo UPDATE condicional: la base bloquea la fila,
+  // así que diez canjes simultáneos se ponen en fila y solo pasan los que caben.
+  return sql.begin(async (tx) => {
+    const filas = await tx`
+      UPDATE cupones SET usos = usos + 1
+       WHERE codigo = ${codigo} AND usos < limite_usos
+      RETURNING codigo
+    `;
+    if (filas.length === 0) return false;
 
-  await sql`UPDATE cupones SET usos = usos + 1 WHERE codigo = ${codigo}`;
-  await sql`INSERT INTO canjes (codigo, equipo) VALUES (${codigo}, ${equipo})`;
-  return true;
+    await tx`INSERT INTO canjes (codigo, equipo) VALUES (${codigo}, ${equipo})`;
+    return true;
+  });
 }
 
 /** Cuántas veces se ha canjeado un cupón, según la tabla de canjes. */
