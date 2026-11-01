@@ -1,0 +1,76 @@
+name: pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+
+    # La base de datos de las pruebas de integración. GitHub la levanta
+    # como un contenedor al lado del trabajo, igual que tu docker-compose.
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pruebas
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pruebas"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5434/pruebas
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Esquema de la base
+        run: |
+          until pg_isready -h localhost -p 5434 -U postgres; do sleep 1; done
+          PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d pruebas -f db/01-esquema.sql
+
+      # ── Las cuatro compuertas, de la más barata a la más cara ──────────────
+      - name: Análisis estático
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm tipos
+
+      - name: Unidad e integración, con cobertura
+        run: pnpm cobertura
+
+      - name: Mutantes
+        run: pnpm mutantes
+
+      - name: Navegadores de Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Extremo a extremo
+        run: pnpm e2e
+
+      - name: Guardar el reporte de Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-playwright
+          path: playwright-report/
+          retention-days: 7
