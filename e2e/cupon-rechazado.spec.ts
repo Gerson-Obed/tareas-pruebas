@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Esta la escribes tú. Hay tres casos y los tres tienen que quedar cubiertos.
@@ -18,17 +18,37 @@ import { test, expect } from '@playwright/test';
 // ya reintenta solo hasta que aparece.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.fixme('avisa que el cupón venció y no descuenta nada', async ({ page }) => {
+async function calcularConCupon(page: Page, codigo: string) {
   await page.goto('/checkout');
-  // …
+  await page.getByLabel('Plan').selectOption('taller');
+  await page.getByLabel('Cupón').fill(codigo);
+  await page.getByRole('button', { name: 'Calcular' }).click();
+}
+
+test('avisa que el cupón venció y no descuenta nada', async ({ page }) => {
+  await calcularConCupon(page, 'USP-1999');
+
+  await expect(page.getByText('Ese cupón ya venció.')).toBeVisible();
+  await expect(page.getByTestId('descuento')).toHaveText('−Q0.00');
+  await expect(page.getByTestId('total')).toHaveText('Q268.80');
 });
 
-test.fixme('avisa que el cupón ya se agotó y no descuenta nada', async ({ page }) => {
-  await page.goto('/checkout');
-  // …
+test('avisa que el cupón ya se agotó y no descuenta nada', async ({ page }) => {
+  await calcularConCupon(page, 'USP-0404');
+
+  await expect(
+    page.getByText('Ese cupón ya se usó todas las veces que podía usarse.'),
+  ).toBeVisible();
+  await expect(page.getByTestId('descuento')).toHaveText('−Q0.00');
+  await expect(page.getByTestId('total')).toHaveText('Q268.80');
 });
 
-test.fixme('avisa que el código no tiene forma de cupón', async ({ page }) => {
-  await page.goto('/checkout');
-  // …
+test('avisa que el código no tiene forma de cupón', async ({ page }) => {
+  await calcularConCupon(page, 'HOLA');
+
+  await expect(
+    page.getByText('Ese código no tiene la forma de un cupón (AAA-0000).'),
+  ).toBeVisible();
+  await expect(page.getByTestId('descuento')).toHaveText('−Q0.00');
+  await expect(page.getByTestId('total')).toHaveText('Q268.80');
 });

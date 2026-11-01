@@ -83,7 +83,7 @@ export default function Checkout() {
 
               <div className="total" style={{ display: 'contents' }}>
                 <dt>Total a pagar</dt>
-                <dd data-prueba="total">{enQuetzales(desglose.subtotal + desglose.iva)}</dd>
+                <dd data-prueba="total">{enQuetzales(desglose.total)}</dd>
               </div>
             </dl>
 

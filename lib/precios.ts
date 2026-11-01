@@ -46,7 +46,7 @@ const MS_POR_DIA = 86_400_000;
 export function diasEntre(desde: Date, hasta: Date): number {
   const ms = hasta.getTime() - desde.getTime();
   if (ms <= 0) return 0;
-  return Math.floor(ms / MS_POR_DIA) + 1;
+  return Math.floor(ms / MS_POR_DIA);
 }
 
 /**
@@ -75,7 +75,7 @@ export function aplicarCupon(subtotal: number, cupon: Cupon, ahora: Date): numbe
   const descuento =
     cupon.topeCentavos !== undefined ? Math.min(bruto, cupon.topeCentavos) : bruto;
 
-  return subtotal - descuento;
+  return Math.max(0, subtotal - descuento);
 }
 
 /**
@@ -85,11 +85,10 @@ export function aplicarCupon(subtotal: number, cupon: Cupon, ahora: Date): numbe
  * se calcula sobre lo que de verdad se cobra.
  */
 export function calcularTotal(subtotal: number, cupon: Cupon | null, ahora: Date): Desglose {
-  const iva = Math.round(subtotal * IVA);
-  const conIva = subtotal + iva;
-  const total = cupon ? aplicarCupon(conIva, cupon, ahora) : conIva;
+  const cobrado = cupon ? aplicarCupon(subtotal, cupon, ahora) : subtotal;
+  const iva = Math.round(cobrado * IVA);
 
-  return { subtotal, descuento: conIva - total, iva, total };
+  return { subtotal, descuento: subtotal - cobrado, iva, total: cobrado + iva };
 }
 
 /** Q75.00 a partir de 7500. Solo para mostrar. */
